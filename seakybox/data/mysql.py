@@ -10,7 +10,6 @@ import traceback
 from collections import OrderedDict
 from functools import wraps
 
-import pandas
 import pandas as pd
 from sqlalchemy import Float
 from sqlalchemy import INTEGER as INTEGER1, FLOAT, create_engine, UniqueConstraint
@@ -19,7 +18,7 @@ from sqlalchemy import exc
 from sqlalchemy.dialects.mysql import BIGINT, INTEGER, SMALLINT, TINYINT
 from sqlalchemy.orm import sessionmaker
 
-from ..data.pd import set_none
+from ..data.pd import df_set_none
 from ..func.string import change_type, add_quote
 from ..func.time import datetime_to_string
 
@@ -405,7 +404,7 @@ class MyModel:
         for x in list_diff:
             items_need_update.append((df_new_copy.loc[x].to_dict(), df_old_copy.loc[x].to_dict()))
         items_new = df_new_copy.loc[compare['left_only']]
-        items_new = set_none(items_new).to_dict(orient='index')
+        items_new = df_set_none(items_new).to_dict(orient='index')
         items_miss = df_new_copy.loc[compare['right_only']].to_dict(orient='index')
 
         # items_new = df_new_copy.loc[df_diff.index].to_dict(orient='index')
@@ -471,7 +470,7 @@ class MyModel:
             param_update['key'] = key
         if not param_delete:
             param_delete = {}
-        if not use_df and isinstance(data_new, pandas.core.frame.DataFrame):
+        if not use_df and isinstance(data_new, pd.core.frame.DataFrame):
             data_new = data_new.to_dict(orient='records')
         if isinstance(data_new, list):
             data_new = {x[key]: x for x in data_new}
@@ -933,7 +932,7 @@ class MyModel:
         如果列col是int，但有None，该col会被返回成float
         '''
         df = self._read_sql_query(sql, **kwargs)
-        df = set_none(df)
+        df = df_set_none(df)
         cols = df.columns.tolist()
         if ret_df:
             if apply_func:

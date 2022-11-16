@@ -10,7 +10,7 @@ from functools import partial
 
 import requests
 
-from ..func.misc import fence
+from seakybox.misc.ctf import fence
 
 
 def im(content, url, auth, mode, to, add_time=False, log=None):

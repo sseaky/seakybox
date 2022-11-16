@@ -8,7 +8,7 @@ import re
 
 import IPy
 
-Pattern_IP = '(?P<ip>((25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(25[0-5]|2[0-4]\d|[01]?\d\d?))'    # 老版本
+Pattern_IPv4 = '(?P<ip4>((25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(25[0-5]|2[0-4]\d|[01]?\d\d?))'    # 老版本
 
 Pattern_IPv4Seg = '(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])'
 Pattern_IPv4Address = '(?P<ip4>{})'.format('({0}\.){{3,3}}{0}'.format(Pattern_IPv4Seg))

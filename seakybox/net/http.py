@@ -12,6 +12,7 @@ from pathlib import Path
 from urllib import parse
 
 import requests
+from lxml import html
 from bs4 import BeautifulSoup
 
 from ..func.base import MyClass
@@ -67,19 +68,19 @@ class Http(MyClass):
     def __getattr__(self, item):
         return self.__dict__.get(item, self.kwargs.get(item))
 
-    def fetch(self, url, ret_bs=True, method='GET', timeout=None,
-              retry=3, retry_code=None, retry_not_200=False,
-              ret_raw=False, ret_dic=False, ret_json=False, charset=None, **kwargs):
+    def fetch(self, url, method='GET', timeout=None,
+              retry=3, retry_code=None, retry_not_200=False, ret_dict=False, parse=True,
+              charset=None, **kwargs):
         '''
         :param url:
-        :param ret_bs: 返回bs4 obj
-        :param ret_raw: 返回原始数据
         :param method: GET、POST
         :param retry: 重试次数
         :param retry_code: 重试某些code
         :param retry_not_200: 重试非200
-        :param ret_dic: 返回url, args, result的字典
+        :param ret_dict: 返回url, args, result的字典
         :param charset:
+        :param timeout:
+        :param parse:
         :param kwargs:
             get-params, post-data
         :return:
@@ -93,10 +94,10 @@ class Http(MyClass):
         flag = False
         retry_code = retry_code or []
         code_reason = ''
-        for i in range(retry):
+        for i in range(retries):
             try:
-                _raw = self.session.post(url, **d) if method == 'POST' else self.session.get(url, **d)
-                code = _raw.status_code
+                resp = self.session.post(url, **d) if method == 'POST' else self.session.get(url, **d)
+                code = resp.status_code
                 if retry_not_200 and code != 200:
                     code_reason = code
                     continue
@@ -105,7 +106,7 @@ class Http(MyClass):
                     continue
                 else:
                     flag = True
-                    url = _raw.url
+                    url = resp.url
                     break
             except Exception as e:
                 error = e
@@ -114,22 +115,21 @@ class Http(MyClass):
                 raise Exception('fetch {} fail, status_code={}. {}'.format(url, code_reason, d))
             else:
                 raise Exception('fetch {} error, {}. {}'.format(url, error, d))
-        if ret_raw:
-            self.fetch_after(_raw, None, None)
-            return {'result': _raw, 'url': url, 'kwargs': d} if ret_dic else _raw
-        if ret_json:
-            return _raw.json()
-        _raw = _raw.content
-        if not charset:
-            m = re.search('charset=\W*(?P<charset>\w+)', _raw[:200].decode(errors='ignore'))
-            charset = m.groupdict().get('charset', 'utf-8') if m else 'utf-8'
-        if charset == 'gb2312':
-            charset = 'cp936'
-        _content = _raw.decode(encoding=charset, errors='ignore')
-        bs = BeautifulSoup(_content, features=self.kwargs.get('features', 'html.parser'))
-        self.fetch_after(_raw, _content, bs)
-        ret = bs if ret_bs else _content
-        return {'result': ret, 'url': url, 'kwargs': d} if ret_dic else ret
+        ret = {'resp': resp, 'url': url, 'kwargs': d, 'method': method}
+        if parse:
+            content = resp.content
+            if not charset:
+                m = re.search('charset=\W*(?P<charset>\w+)', content[:200].decode(errors='ignore'))
+                charset = m.groupdict().get('charset', 'utf-8') if m else 'utf-8'
+            if charset == 'gb2312':
+                charset = 'cp936'
+            _content = content.decode(encoding=charset, errors='ignore')
+            ret['content'] = _content
+            tree = html.fromstring(_content)
+            ret['xpath'] = tree
+            ret['bs'] = BeautifulSoup(_content, features=self.kwargs.get('features', 'html.parser'))
+        self.fetch_after(ret)
+        return ret if ret_dict else resp
 
     def multi_job(self, *args, **kwargs):
         '''

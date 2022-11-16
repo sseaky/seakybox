@@ -4,6 +4,7 @@
 # @Date:   2019/8/14 11:56
 
 import re
+import time
 from datetime import datetime
 
 # pip3 install python-dateutil
@@ -101,3 +102,34 @@ def format_datetime_string(s, fmt_in=None, fmt_out=None):
     if not fmt_out:
         fmt_out = fmt1
     return datetime_to_string(string_to_datetime(s, fmt=fmt_in), fmt=fmt_out)
+
+
+def wait(timeout, prompt_interval=3600):
+    i = 0
+    _timeout = timeout
+    print('{}, total wait {} s'.format(time.ctime(), timeout))
+    while timeout >= 0:
+        if i:
+            print('{}, remain {} s'.format(time.ctime(), timeout))
+        i += 1
+        time.sleep(min(timeout, prompt_interval))
+        timeout = timeout - prompt_interval
+    print('wait {} done'.format(_timeout))
+
+
+def wait_repeat(f, interval, prompt_interval=3600, first_interval=0, repeat=10000, f_kwargs=None):
+    if first_interval is None:
+        first_interval = interval
+    if f_kwargs is None:
+        f_kwargs = {}
+    for i in range(repeat):
+        if i == 0:
+            wait(first_interval, prompt_interval=prompt_interval)
+        else:
+            wait(interval, prompt_interval=prompt_interval)
+        f(**f_kwargs)
+
+
+def wait_power(timeout=10, maximum=3600, factor=2):
+    wait(timeout)
+    return min(int(timeout * factor), maximum)

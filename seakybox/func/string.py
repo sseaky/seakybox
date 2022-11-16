@@ -4,73 +4,12 @@
 # @Date:   2019/8/20 14:57
 
 import re
-from decimal import Decimal
-
-
-def qround(n, digit=2, retf=False):
-    '''
-    比round更高的精度
-    :param n:
-    :param digit:
-    :param retf:
-    :return:
-    '''
-    r = Decimal(n).quantize(Decimal('0.{}'.format('0' * digit)))
-    if retf:
-        r = float(r)
-    return r
-
-
-def comma_digit(s, tp=int):
-    '''用逗号分割数字'''
-    if isinstance(s, int):
-        return '{,}'.format_map(s)
-    if str_is_number(s, tp, exp=True):
-        return '{:,}'.format(int(s))
-    return s
-
-
-def str_is_number(s, tp=None, exp=True):
-    '''
-
-    :param s:
-    :param tp: 指定int/float，None两者都行
-    :param exp: 扩展，如果s是int/float，也可以返回true
-    :return:
-    '''
-    if not isinstance(s, str):
-        if exp and isinstance(s, int) and tp in (None, int):
-            return True
-        if exp and isinstance(s, float) and tp in (None, float):
-            return True
-        return False
-    if tp == int:
-        return re.match('^\-{,1}\d+\.{0,0}\d+$', s)
-    elif tp == float:
-        return re.match('^\-{,1}\d+\.{1,1}\d+$', s)
-    else:
-        return re.match('^\-{,1}\d+\.{,1}\d+$', s)
+from .number import str_is_number
 
 
 def str_is_email_address(s):
     if isinstance(s, str):
         return re.search('^(?P<id>.+)@(?P<domain>[\w\d]+\.([\w\d]+\.){0,}\w+$)', s)
-
-
-def exact_number(s, base=1000):
-    '''
-    iptables中可以使用-x参数
-    :param s:
-    :param base:
-    :return:
-    '''
-    l = ['k', 'm', 'g', 't']
-    if s.isdigit():
-        return s
-    else:
-        for i, c in enumerate(l):
-            if s[-1].lower() == c:
-                return str(int(s[:-1]) * base ** (i + 1))
 
 
 def obj2list(obj, ret_str=False, sep=',', preserve_blank=False, preserve_none=False, wrapper='', ignore=None, sep2=','):
@@ -122,7 +61,7 @@ def add_quote(v, to_str=True, split=False, delimiter=',', strip=True, quote='"')
 
 def str2list(s, sep=',', preserve_blank=False, wrapper='', filter=None):
     '''
-    分割字符串，添加引号
+    分割字符串，可添加引号
     :param s:
     :param preserve_blank:   是否保留空的item
     :param wrapper: '/"
@@ -147,23 +86,23 @@ def str2list(s, sep=',', preserve_blank=False, wrapper='', filter=None):
         return [s]
 
 
-def list2str(l, sep=',', wrapper='', *args, **kwargs):
+def list2str(lst, sep=',', wrapper='', *args, **kwargs):
     '''
     list转成str，并加上wrapper
-    :param l:
+    :param lst:
     :param sep:
     :param wrapper:
     :param args:
     :param kwargs:
     :return:
     '''
-    if isinstance(l, (list, set)):
-        return sep.join(['{0}{1}{0}'.format(wrapper, x) for x in l])
-    elif isinstance(l, str):
-        l1 = str2list(l, sep=sep, *args, **kwargs)
+    if isinstance(lst, (list, set)):
+        return sep.join(['{0}{1}{0}'.format(wrapper, x) for x in lst])
+    elif isinstance(lst, str):
+        l1 = str2list(lst, sep=sep, *args, **kwargs)
         return list2str(l1, sep=sep, wrapper=wrapper)
     else:
-        return l
+        return lst
 
 
 def arg2list(obj):
@@ -316,7 +255,7 @@ def windows_filename(s, full=False, space=True):
     return replace(s, pats=pats)
 
 
-def sort_port(x, base=100):
+def sort_interface(x, base=100):
     '''排序端口 1/0/1 1/0/10'''
     m = re.findall('\d+', x)
     if m:
@@ -380,13 +319,3 @@ def format_output(data, column=None, show_title=True, fmt=None, default='-', sep
         else:
             s.append(str(x))
     return '\n'.join(s)
-
-
-def confirm(prompt='确认？'):
-    '''
-    确认
-    :param prompt:
-    :return:
-    '''
-    c = input('{} (y|N)  '.format(prompt)).strip()
-    return c.lower() == 'y'

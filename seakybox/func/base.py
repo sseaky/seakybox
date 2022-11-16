@@ -304,6 +304,12 @@ class MyClass:
             # 两个类建立默认log时，前者会没有输出？
             self.log = make_logger(**log_params)
 
+    def get_from_cache(self, key, func, func_kw=None):
+        func_kw = func_kw or {}
+        if self.cache.get(key) is None:
+            self.cache[key] = func(**func_kw)
+        return self.cache[key]
+
     def default(self, k):
         return self.control.get(k)
 

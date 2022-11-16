@@ -11,17 +11,17 @@ from ..net.ip import ip2int
 from ..os.oper import path_open
 
 
-def set_none(df, other=None, **kwargs):
+def df_set_none(df, other=None, **kwargs):
     '''将nan替换为None, 可以应用于series'''
     return df.where(pd.notnull(df), other=other, **kwargs)
 
 
-def drop_nan(df, col):
+def df_drop_nan(df, col):
     '''按某一列nan舍弃行'''
     return df[pd.notnull(df[col])]
 
 
-def select_row(df, func):
+def df_select_row(df, func):
     '''
     :param df:
     :param func: return True/False
@@ -91,7 +91,7 @@ def to_df(data, cols=None, black=None, sort_by=None, sort_type=None, sort_desc=F
             _sort_by = sort_by
         df = df.sort_values(by=_sort_by, axis=0, ascending=not sort_desc, inplace=False)[origin_columns]
     if use_none:
-        df = set_none(df, other=none_str)
+        df = df_set_none(df, other=none_str)
     return df
 
 
@@ -107,7 +107,7 @@ def array_to_np(list, **kwargs):
     return np.array(list, **kwargs)
 
 
-def add_columns(df, col, value, axis=1):
+def df_add_columns(df, col, value, axis=1):
     '''
     :param df:
     :param col: str/list
@@ -196,11 +196,12 @@ def change_df_type():
     pass
 
 
-def to_excel(data, fn, mode='w', engine=None):
+def df_to_excel(data, fn, mode='w', engine=None):
     '''
-    :param data:  (df, {'sheet_name': sheet_name, 'index': False})
+    :param data:  [(df, {'sheet_name': sheet_name, 'index': False})]
     :param fn:
     :param mode:  'a'模式，需要安装openpyxl
+    :param engine:
     :return:
     '''
     if mode == 'a':

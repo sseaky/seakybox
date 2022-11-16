@@ -11,20 +11,23 @@ from copy import deepcopy
 from pathlib import Path
 
 from .time import datetime_to_string
-from ..os.info import get_pwd, get_caller
+from ..os.info import get_pwd, get_caller, get_hostname
 
 
-def make_logger(log=None, name=None, stem=None, log_dir='log', work_dir=None, console=True, write=False,
-                focus_error=True, multi_process=True,
+def make_logger(log=None, name=None, stem=None, add_hostname=False, log_dir='log', work_dir=None, filename=None,
+                console=True, write=False,
+                focus_error=True, multi_process=False,
                 level='INFO', debug=False, **kwargs):
     '''
     :param log:
     :param simple_log:   默认使用print
     :param name: logger name
     :param stem: file stem, default filename without type
+    :param add_hostname: add hostname to stem
     :param log_dir:
     :param work_dir:
     :param console:
+    :param filename:  不带后缀
     :param write:
     :param focus_error:     增加error日志
     :param multi_process:   支持多进程
@@ -42,6 +45,10 @@ def make_logger(log=None, name=None, stem=None, log_dir='log', work_dir=None, co
     dpath.mkdir(exist_ok=True)
     stem = stem or caller.stem
     name = name or caller.name
+    if add_hostname:
+        stem = '{}_{}'.format(stem, get_hostname())
+    if not filename:
+        filename = stem
 
     # concurrent_log_handler.ConcurrentRotatingFileHandler 支持多进程，但不能做时间分割
     # logging.handlers.RotatingFileHandler 只支持多线程
@@ -53,7 +60,7 @@ def make_logger(log=None, name=None, stem=None, log_dir='log', work_dir=None, co
         # If delay is true,
         # then file opening is deferred until the first call to emit().
         'delay': True,
-        'filename': str(dpath / '{0}.log'.format(stem)),
+        'filename': str(dpath / '{0}.log'.format(filename)),
         'formatter': 'verbose'
     }
 
@@ -87,7 +94,7 @@ def make_logger(log=None, name=None, stem=None, log_dir='log', work_dir=None, co
         d['handlers']['file'] = file_handler
         if focus_error:
             file_handler_error = deepcopy(file_handler)
-            file_handler_error.update({'level': 'WARN', 'filename': str(dpath / '{0}_error.log'.format(stem))})
+            file_handler_error.update({'level': 'WARN', 'filename': str(dpath / '{0}_error.log'.format(filename))})
             d['handlers']['file_error'] = file_handler_error
     if 'handlers' in kwargs:
         d['handlers'].update(kwargs['handlers'])

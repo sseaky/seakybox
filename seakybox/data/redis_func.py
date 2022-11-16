@@ -18,16 +18,18 @@ PIPELINE_N = 10000
 
 class RedisC(Redis):
     def __init__(self, host=None, port=6379, db=0, password=None, sentinels=None, service_name=None,
-                 decode_responses=True, socket_timeout=None, log=None, *args, **kwargs):
+                 decode_responses=True, socket_timeout=None, log=None, health_check_interval=30, *args, **kwargs):
         if sentinels:
             sentinel = Sentinel(sentinels=sentinels)
             master = sentinel.discover_master(service_name=service_name)
             host, port = master
         self.server = {'host': host, 'port': port, 'db': db, 'password': password, 'decode_responses': decode_responses,
                        'socket_timeout': socket_timeout}
+        self.health_check_interval = health_check_interval
         self.log = log if log else SimpleLog()
         self.pool = ConnectionPool(*args, **self.server, **kwargs)
-        Redis.__init__(self, connection_pool=self.pool)
+        super().__init__(
+            connection_pool=self.pool, health_check_interval=self.health_check_interval, retry_on_timeout=True)
         # Redis.__init__(self, *args, **self.server, **kwargs)
         self.cache_result = {}
 
@@ -36,11 +38,21 @@ class RedisC(Redis):
         显示 redis server 信息
         :return:
         '''
-        msg = 'Redis: {host}:{port}/{db}'.format(**self.server)
-        if self.log:
-            self.log.info(msg)
-        else:
-            print(msg)
+        msg = 'Redis: {host}:{port}/{db}, Status: {}'.format(self.ping(), **self.server)
+        self.log.info(msg)
+
+    def get(self, name):
+        value = super(RedisC, self).get(name)
+        try:
+            return json.loads(value)
+        except Exception as e:
+            return value
+
+    def set(self, name, value, retry=2, **kwargs):
+        if not isinstance(value, str):
+            value = json.dumps(value)
+        resp = super(RedisC, self).set(name, value, **kwargs)
+        return resp
 
     def count_keys(self, prefix, count=SCAN_COUNT, ret_keys=False, limit=None, key_with_prefix=True):
         '''
