@@ -5,9 +5,7 @@
 
 
 import pymongo
-import traceback
 import urllib.parse
-from ..func.time import datetime_to_string
 
 
 class MongoDBUtil:
@@ -105,7 +103,8 @@ class MongoDBUtil:
 
     def find_one(self, collect_name, filter=None, *args, **kwargs):
         """查询一条记录"""
-        return self.database.get_collection(collect_name).find_one(filter, *args, **kwargs)
+        ret = self.database.get_collection(collect_name).find_one(filter, *args, **kwargs)
+        return ret if ret is not None else {}
 
     def find(self, collect_name, *args, **kwargs):
         """查询所有记录"""
@@ -139,81 +138,82 @@ class MongoDBUtil:
                                                                               array_filters, hint, session, **kwargs)
 
     # custom
-    def find_all(self, collect_name, dict_key=None, *args, **kwargs):
-        obj = self.find(collect_name=collect_name, *args, **kwargs)
+    def find_all(self, collect_name, dict_key=None, limit=0, filter=None ,*args, **kwargs):
+        obj = self.find(collect_name=collect_name, limit=limit, filter=filter, *args, **kwargs)
         if dict_key:
             dic = {x[dict_key]: x for x in obj}
-            print('find {} documents'.format(len(dic)))
+            print('{} find {} documents'.format(collect_name, len(dic)))
             return dic
         else:
             lst = [x for x in obj]
-            print('find {} documents'.format(len(lst)))
+            print('{} find {} documents'.format(collect_name, len(lst)))
             return lst
 
-    def check_and_lock_it(self, process, collect_name, filter=None, address=None, skip_lock=False, expect=1,
-                          *args, **kwargs):
-        if not filter:
-            filter = {'address': address}
-        item = self.find_one(collect_name=collect_name, filter=filter, *args, **kwargs)
-        lock_col = '{}_lock'.format(process)
-        if item.get(process) == expect:
-            if item.get(lock_col) == 1:
-                update = {'$set': {lock_col: 0}}
-                self.update_one(collect_name=collect_name, filter=filter, update=update)
-            return False
-        if item.get(lock_col) == 1:
-            return skip_lock or False
-        else:
-            update = {'$set': {lock_col: 1}}
-            self.update_one(collect_name=collect_name, filter=filter, update=update)
-            return True
+    def check_bool(self, collect_name, filter, key, true=1, **kwargs):
+        item = self.find_one(collect_name=collect_name, filter=filter, **kwargs)
+        return item.get(key) == true
 
-    def unlock_it(self, process, collect_name, filter=None, address=None, result=None, exp=None, *args, **kwargs):
-        if result is True:
-            result = 1
-        elif result is False:
-            result = 0
-        if not filter:
-            filter = {'address': address}
-        item = self.find_one(collect_name=collect_name, filter=filter, *args, **kwargs)
-        lock_col = '{}_lock'.format(process)
-        d = {}
-        if item.get(lock_col) == 1:
-            d[lock_col] = 0
-            if result is not None:
-                d[process] = result
-            d['{}_exp'.format(process)] = exp
-        update = {'$set': d}
-        self.update_one(collect_name=collect_name, filter=filter, update=update)
+    def update_bool(self, collect_name, filter, key, true=1, upsert=False, **kwargs):
+        update = {key, true}
+        self.update_one(collect_name, filter, update, upsert=upsert, **kwargs)
+
+    def insert_many_new(self, collect_name, documents, key):
+        d1 = self.find_all(collect_name=collect_name, dict_key=key)
+        d2 = [x for x in documents if x[key] not in d1]
+        if len(d2) > 0:
+            ret = self.insert_many(collect_name=collect_name, documents=d2)
+            return ret
         return True
 
-    def resort_id(self, collect_name, key='i'):
-        lst = self.find_all(collect_name=collect_name)
-        for i, x in enumerate(lst):
-            j = i + 1
-            if x.get(key) != j:
-                print('fixing {} ...'.format(j))
-                filter = {'_id': x['id']}
-                update = {'$set': {key: j}}
-                r = self.update_one(collect_name=collect_name, filter=filter, update=update)
+    def str_list_check(self, elements, collect_name=None, key=None, filter=None, spliter=',', lst_in_db=None):
+        if isinstance(elements, str):
+            elements = [x.strip() for x in elements.split(spliter) if x.strip() != '']
+        _e = []
+        # 去重
+        for x in elements:
+            if x not in _e:
+                _e.append(x)
+        elements = _e
+        if lst_in_db is None:
+            item = self.find_one(collect_name=collect_name, filter=filter)
+            lst_in_db = [x.strip() for x in (item.get(key, '') or '').split(spliter) if x.strip() != '']
+        lst_include = [x for x in elements if x in lst_in_db]
+        lst_exclude = [x for x in elements if x not in lst_in_db]
+        ret = {'include': lst_include, 'exclude': lst_exclude, 'in_db': lst_in_db, 'elements': elements, 'key': key}
+        if len(ret['include']) == len(elements):
+            status = 1
+        elif len(ret['exclude']) == len(elements):
+            status = 0
+        else:
+            status = 2
+        ret['status'] = status
+        return ret
 
-    def run_with_lock(self, collect_name, filter, process, func, i=None, skip_lock=False, stop_when_fail=False):
-        if self.check_and_lock_it(collect_name=collect_name, process=process, filter=filter, skip_lock=skip_lock):
-            print('  {} {}{} {}'.format(datetime_to_string(), str(i) + ' ' if i else '', process, filter))
-            exp = None
-            result = None
-            try:
-                result = func[0](**func[1])
-                print('    result: {}'.format(result))
-            except Exception as e:
-                exp = traceback.format_exc()
-                print(exp)
-                result = 0
-            finally:
-                self.unlock_it(collect_name=collect_name, process=process, filter=filter, result=result, exp=exp)
-                if stop_when_fail and not result:
-                    return -1
-                return result
+    def str_list_append(self, elements, collect_name, key, filter, spliter=',', sort=False):
+        d = self.str_list_check(
+            elements=elements, collect_name=collect_name, key=key, filter=filter, spliter=spliter)
+        if d['exclude']:
+            d['in_db'].extend(d['exclude'])
+            if sort:
+                d['in_db'].sort()
+            _update = {key: spliter.join(d['in_db'])}
+            self.update_one(collect_name=collect_name, filter=filter, update={'$set': _update})
+            print('{key} add {exclude}'.format(**d))
+        return d
+
+    def str_list_delete(self, elements, collect_name, key, filter, spliter=','):
+        d = self.str_list_check(
+            elements=elements, collect_name=collect_name, key=key, filter=filter, spliter=spliter)
+        if d['include']:
+            for x in d['include']:
+                d['in_db'].remove(x)
+            _update = {key: spliter.join(d['in_db'])}
+            self.update_one(collect_name=collect_name, filter=filter, update={'$set': _update})
+            print('{key} remove {include}'.format(**d))
+        return d
+
+
+
 
 # class MongoC(MongoDBUtil):
 #     def __init__(self, *args, **kwargs):

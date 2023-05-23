@@ -136,11 +136,14 @@ def is_instance(obj):
         return True
 
 
-def catch_exception(ignore=False, retry=0, prune_func=None):
+def catch_exception(ignore=False, retry=0, prune_func=None, interval=1, print_exception=1, raise_exp=False):
     '''
     :param ignore: 不记录错误, 尝试性的exception
     :param retry: 重试次数
     :param prune_func: 过滤一些不重要的log
+    :param interval: 重试等待时间
+    :param print_exception: 打印错误, 0-不打印，1-打印异常，2-打印trace
+    :param raise_exp: 是否要抛出异常
     :return:
     如果 kwargs中含有no_catch_exception，忽略本catch
     如果是普通函数，可以附加 _show_exception 参数控制是否显示具体异常，不会真正传入f；
@@ -179,8 +182,15 @@ def catch_exception(ignore=False, retry=0, prune_func=None):
                 except Exception as e:
                     excep, e1, trace = True, e, '{}'.format(traceback.format_exc())
                 i += 1
+                if print_exception & 1 == 1:
+                    print(e1)
+                elif print_exception & 2 == 2:
+                    print(trace)
+                time.sleep(interval)
             if not excep:
                 return result
+            elif raise_exp:
+                raise trace
             else:
                 d = {'function': real_func.__name__, 'message': '{}'.format(e1), 'except': e1,
                      'trace': trace, 'ignore': ignore}

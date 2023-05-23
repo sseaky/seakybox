@@ -166,9 +166,9 @@ def execute_sql_remote(sql, print_error=PRINT_ERROR, columns_func=False, **kwarg
 
 def parse_execute_sql_result(p, columns_func=None):
     if p.returncode == 0:
-        p.result = []
+        p.account = []
         if p.stdout:
-            p.result.extend(parse_sql_result(p.stdout, columns_func=columns_func))
+            p.account.extend(parse_sql_result(p.stdout, columns_func=columns_func))
     return p
 
 

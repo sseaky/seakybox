@@ -50,7 +50,7 @@ def show_digit(value, dot=None):
     return value_s
 
 
-def random_value(value, ratio_min=0.05, ratio_max=0.2, dot_min=1, dot_max=3):
+def random_value(value, ratio_min=1, ratio_max=2, dot_min=1, dot_max=3):
     '''
     随机ratio，随机位数
     '''
